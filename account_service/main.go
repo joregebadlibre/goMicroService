@@ -1,22 +1,44 @@
-// main.go
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
+	"net/http"
+	"os"
 
 	"github.com/streadway/amqp"
 )
 
+type Persona struct {
+	Nombre string `json:"nombre"`
+	Edad   int    `json:"edad"`
+}
+
 func main() {
-	conn, err := amqp.Dial("RABBITMQ_URL")
+
+	http.HandleFunc("/cuenta", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Microservicio Cuenta")
+	})
+
+	go receiveMessages()
+
+	log.Fatal(http.ListenAndServe(":8082", nil))
+}
+
+func receiveMessages() {
+
+	hostRabbitMQ := os.Getenv("SPRING_RABBITMQ_URL")
+	fmt.Println("host rabbitMQ:", hostRabbitMQ)
+	conn, err := amqp.Dial(hostRabbitMQ)
 	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ: %s", err)
+		log.Fatal(err)
 	}
 	defer conn.Close()
 
 	ch, err := conn.Channel()
 	if err != nil {
-		log.Fatalf("Failed to open a channel: %s", err)
+		log.Fatal(err)
 	}
 	defer ch.Close()
 
@@ -29,7 +51,7 @@ func main() {
 		nil,
 	)
 	if err != nil {
-		log.Fatalf("Failed to declare a queue: %s", err)
+		log.Fatal(err)
 	}
 
 	msgs, err := ch.Consume(
@@ -42,17 +64,23 @@ func main() {
 		nil,
 	)
 	if err != nil {
-		log.Fatalf("Failed to register a consumer: %s", err)
+		log.Fatal(err)
 	}
 
 	forever := make(chan bool)
 
 	go func() {
 		for d := range msgs {
-			log.Printf("Received a message: %s", d.Body)
+			var persona Persona
+			err := json.Unmarshal(d.Body, &persona)
+			if err != nil {
+				log.Printf("Error deserializando el mensaje: %s", err)
+				continue
+			}
+			log.Printf("Recibido: Nombre=%s, Edad=%d", persona.Nombre, persona.Edad)
 		}
 	}()
 
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	log.Printf("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
