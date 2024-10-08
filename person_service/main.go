@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -19,7 +18,7 @@ type Persona struct {
 func main() {
 
 	http.HandleFunc("/persona", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Microservicio Persona")
+
 		var persona Persona
 
 		// Leer el cuerpo de la solicitud
@@ -35,15 +34,27 @@ func main() {
 			return
 		}
 
+		persona.Nombre = "Modificado antes de enviar a cuenta"
+		// Serializar el objeto Persona a JSON para la respuesta
+		response, err := json.Marshal(persona)
+		if err != nil {
+			http.Error(w, "Error al serializar el objeto Persona", http.StatusInternalServerError)
+			return
+		}
+		// Establecer el encabezado de contenido y devolver la respuesta
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(response)
+
 		sendMessage(persona)
 	})
+
+	go receiveMessagesCuenta()
 
 	log.Fatal(http.ListenAndServe(":8081", nil))
 }
 
 func sendMessage(persona Persona) {
 	hostRabbitMQ := os.Getenv("SPRING_RABBITMQ_URL")
-	fmt.Println("host rabbitMQ:", hostRabbitMQ)
 	conn, err := amqp.Dial(hostRabbitMQ)
 
 	if err != nil {
@@ -86,4 +97,61 @@ func sendMessage(persona Persona) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func receiveMessagesCuenta() {
+	hostRabbitMQ := os.Getenv("SPRING_RABBITMQ_URL")
+	conn, err := amqp.Dial(hostRabbitMQ)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer ch.Close()
+
+	q, err := ch.QueueDeclare(
+		"cuenta_queue",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	msgs, err := ch.Consume(
+		q.Name,
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	forever := make(chan bool)
+
+	go func() {
+		for d := range msgs {
+			var persona Persona
+			err := json.Unmarshal(d.Body, &persona)
+			if err != nil {
+				log.Printf("Error deserializando el mensaje: %s", err)
+				continue
+			}
+			log.Printf("Recibido: Nombre=%s, Edad=%d", persona.Nombre, persona.Edad)
+		}
+	}()
+
+	log.Printf("Waiting for messages. To exit press CTRL+C")
+	<-forever
 }

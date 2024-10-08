@@ -11,7 +11,7 @@ func main() {
 	// Llamar al servicio persona
 
 	personaData := map[string]interface{}{
-		"nombre": "Luis",
+		"nombre": "Pel",
 		"edad":   30,
 	}
 	personaJSON, _ := json.Marshal(personaData)
@@ -20,17 +20,22 @@ func main() {
 		log.Fatalf("Error llamando al servicio persona: %s", err)
 	}
 
-	/*
-		// Llamar al servicio cuenta
-		resp, err := http.Get("http://localhost:8082/cuenta")
-		if err != nil {
-			log.Fatalf("Error llamando al servicio cuenta: %s", err)
-		}
-		defer resp.Body.Close()
+	perData := map[string]interface{}{
+		"nombre": "Men",
+		"edad":   30,
+	}
+	perJSON, _ := json.Marshal(perData)
 
-		// Procesar la respuesta del servicio cuenta
-		var result map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&result)
-		log.Printf("Respuesta del servicio cuenta: %v", result)
-	*/
+	// Llamar al servicio cuenta
+	resp, err := http.Post("http://localhost:8082/cuenta", "application/json", bytes.NewBuffer(perJSON))
+	if err != nil {
+		log.Fatalf("Error llamando al servicio cuenta: %s", err)
+	}
+	defer resp.Body.Close()
+
+	// Procesar la respuesta del servicio cuenta
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+	log.Printf("Respuesta del servicio cuenta: %v", result)
+
 }
