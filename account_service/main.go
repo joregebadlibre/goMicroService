@@ -2,39 +2,21 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
-	"net/http"
 
 	"github.com/streadway/amqp"
 )
 
-type Cuenta struct {
-	ID        string  `json:"id"`
-	PersonaID string  `json:"persona_id"`
-	Balance   float64 `json:"balance"`
-}
-
 func main() {
-	http.HandleFunc("/cuenta", func(w http.ResponseWriter, r *http.Request) {
-		cuenta := Cuenta{ID: "1", PersonaID: "1", Balance: 1000.0}
-		json.NewEncoder(w).Encode(cuenta)
-	})
-
-	log.Println("Cuenta service running on port 8081")
-	log.Fatal(http.ListenAndServe(":8081", nil))
-}
-
-func receiveMessages() {
 	conn, err := amqp.Dial("RABBITMQ_URL")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to connect to RabbitMQ: %s", err)
 	}
 	defer conn.Close()
 
 	ch, err := conn.Channel()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to open a channel: %s", err)
 	}
 	defer ch.Close()
 
@@ -47,7 +29,7 @@ func receiveMessages() {
 		nil,
 	)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to declare a queue: %s", err)
 	}
 
 	msgs, err := ch.Consume(
@@ -60,17 +42,17 @@ func receiveMessages() {
 		nil,
 	)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to register a consumer: %s", err)
 	}
+
+	forever := make(chan bool)
 
 	go func() {
 		for d := range msgs {
 			log.Printf("Received a message: %s", d.Body)
 		}
 	}()
-}
 
-func main() {
-	go receiveMessages()
-	// Resto del código...
+	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	<-forever
 }

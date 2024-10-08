@@ -2,38 +2,21 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
-	"net/http"
 
 	"github.com/streadway/amqp"
 )
 
-type Persona struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
 func main() {
-	http.HandleFunc("/persona", func(w http.ResponseWriter, r *http.Request) {
-		persona := Persona{ID: "1", Name: "Juan Perez"}
-		json.NewEncoder(w).Encode(persona)
-	})
-
-	log.Println("Persona service running on port 8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func sendMessage(message string) {
 	conn, err := amqp.Dial("RABBITMQ_URL")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to connect to RabbitMQ: %s", err)
 	}
 	defer conn.Close()
 
 	ch, err := conn.Channel()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to open a channel: %s", err)
 	}
 	defer ch.Close()
 
@@ -46,9 +29,10 @@ func sendMessage(message string) {
 		nil,
 	)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to declare a queue: %s", err)
 	}
 
+	body := "Mensaje de persona"
 	err = ch.Publish(
 		"",
 		q.Name,
@@ -56,10 +40,11 @@ func sendMessage(message string) {
 		false,
 		amqp.Publishing{
 			ContentType: "text/plain",
-			Body:        []byte(message),
-		},
-	)
+			Body:        []byte(body),
+		})
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to publish a message: %s", err)
 	}
+
+	log.Printf(" [x] Sent %s", body)
 }
