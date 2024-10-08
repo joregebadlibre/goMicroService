@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package services;
+
+service PersonService {
+  rpc GetPerson (PersonRequest) returns (PersonResponse);
+}
+
+service AccountService {
+  rpc GetAccount (AccountRequest) returns (AccountResponse);
+}
+
+message PersonRequest {
+  int32 id = 1;
+}
+
+message PersonResponse {
+  int32 id = 1;
+  string name = 2;
+}
+
+message AccountRequest {
+  int32 id = 1;
+}
+
+message AccountResponse {
+  int32 id = 1;
+  string accountNumber = 2;
+}
