@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    networks:
+      - my_network
+
+  person:
+    container_name: person-services
+    build:
+      context: ./person_service
+      dockerfile: Dockerfile
+    image: person-services:v1
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_RABBITMQ_URL: "amqp://admin:admin@rabbitmq:5672/"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: admin
+      SPRING_RABBITMQ_PASSWORD: admin      
+    depends_on:
+      - rabbitmq
+    networks:
+      - my_network    
+    volumes:
+      - ./log:/log
+    restart: always        
+
+  account:
+    container_name: account-services
+    build:
+      context: ./account_service
+      dockerfile: Dockerfile
+    image: account-services:v1
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_RABBITMQ_URL: amqp://admin:admin@rabbitmq:5672
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: admin
+      SPRING_RABBITMQ_PASSWORD: admin      
+    depends_on:
+      - rabbitmq
+    networks:
+      - my_network    
+    volumes:
+      - ./log:/log
+    restart: always        
+
+networks:
+  my_network:
+    driver: bridge
